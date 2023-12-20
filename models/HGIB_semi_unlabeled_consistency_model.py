@@ -169,14 +169,22 @@ class HGIBSemiUnlabeledConsistencyModel(BaseModel):
                 embedding_MRI = self.netEncoder_MRI(MRI_np)
                 embedding_PET = self.netEncoder_PET(PET_np)
                 embedding_NonImage = self.netEncoder_NonImage(non_image)
-                embedding_u = torch.cat((embedding_MRI, embedding_PET, embedding_NonImage), dim=1)
-                prediction_u_weak = self.netClassifier(embedding_u)
+                self.HGconstruct(embedding_MRI.cpu().detach().numpy(), 
+                                embedding_PET.cpu().detach().numpy(), 
+                                embedding_NonImage.cpu().detach().numpy())
+                prediction_u_weak = self.netDecoder_HGIB(self.embedding, self.G)
+                #embedding_u = torch.cat((embedding_MRI, embedding_PET, embedding_NonImage), dim=1)
+                #prediction_u_weak = self.netClassifier(embedding_u)
                 embedding_MRI_str_aug = self.netEncoder_MRI(MRI_str_aug)
                 embedding_PET_str_aug = self.netEncoder_PET(PET_str_aug)
-                embedding_u_str_aug = torch.cat((embedding_MRI_str_aug, embedding_PET_str_aug, embedding_NonImage), dim=1)
-                prediction_u_str_aug = self.netClassifier(embedding_u_str_aug)
-                prediction_u_weak = F.softmax(prediction_u_weak, 1)
-                prediction_u_str_aug = F.softmax(prediction_u_str_aug, 1)
+                self.HGconstruct(embedding_MRI_str_aug.cpu().detach().numpy(), 
+                                embedding_PET_str_aug.cpu().detach().numpy(), 
+                                embedding_NonImage.cpu().detach().numpy())
+                prediction_u_str_aug = self.netDecoder_HGIB(self.embedding, self.G)
+                #embedding_u_str_aug = torch.cat((embedding_MRI_str_aug, embedding_PET_str_aug, embedding_NonImage), dim=1)
+                #prediction_u_str_aug = self.netClassifier(embedding_u_str_aug)
+                prediction_u_weak = F.softmax(prediction_u_weak[0][-1], 1)
+                prediction_u_str_aug = F.softmax(prediction_u_str_aug[0][-1], 1)
                 loss_u = ((prediction_u_weak - prediction_u_str_aug)**2).sum(1).mean()
 
                 self.loss = self.loss + weight_u * loss_x + weight_u * loss_u

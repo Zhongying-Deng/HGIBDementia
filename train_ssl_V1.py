@@ -104,7 +104,7 @@ if __name__ == '__main__':
     trainTransforms = Compose([RandFlip(prob=0.5), ScaleIntensity(), EnsureChannelFirst(), CenterSpatialCrop(opt.patch_size)])
     train_set = NifitDataSet(opt.data_path, which_direction='AtoB', transforms=trainTransforms, shuffle_labels=False, train=True, phase='train', label_time=opt.label_time, control = opt.control, split=opt.split)
     print('length labeled train list:', len(train_set))
-    train_loader = DataLoader(train_set, batch_size=opt.batch_size, shuffle=True, num_workers=opt.workers*len(opt.gpu_ids), pin_memory=True)  # Here are then fed to the network with a defined batch size
+    train_loader = DataLoader(train_set, batch_size=opt.batch_size, shuffle=True, num_workers=opt.workers*len(opt.gpu_ids), pin_memory=True, drop_last=True)  # Here are then fed to the network with a defined batch size
     # unlabeled data
     trainTransformsStrong = Compose([RandAdjustContrast(prob=0.3, gamma=(0.6, 1.5)), RandFlip(prob=0.5), RandRotate(range_x=15.0, range_y=15.0, range_z=15.0, prob=0.5),
                                      ScaleIntensity(), EnsureChannelFirst(), CenterSpatialCrop(opt.patch_size)])

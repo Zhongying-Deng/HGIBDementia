@@ -179,12 +179,12 @@ class NifitSemiSupDataSet(torch.utils.data.Dataset):
         assert not np.any(np.isnan(non_image))
 
         if self.use_strong_aug:
-            MRI_str_aug = image_MRI#fda.mix_amplitude(image_MRI, image_PET)
+            MRI_str_aug = fda.mix_amplitude(image_MRI, image_PET)
             #MRI_str_aug = self.rand_gamma(image_MRI)
             #axis = random.randint(0,2)
             #rand_flip = tio.RandomFlip(axis, 0.5)
             #MRI_str_aug = rand_flip(MRI_str_aug)
-            PET_str_aug = image_PET#fda.mix_amplitude(image_PET, image_MRI)
+            PET_str_aug = fda.mix_amplitude(image_PET, image_MRI)
             #PET_str_aug = self.rand_gamma(image_PET)
             #PET_str_aug = rand_flip(PET_str_aug)
             if self.transforms_strong is not None:

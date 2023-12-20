@@ -47,48 +47,42 @@ def validation(model, epoch, writer):
     prediction = model.get_prediction_cur()
     target = model.get_target_cur()
 
-    prediction = prediction.cpu().detach()
-
     target = target.cpu().detach()
-    metric = MulticlassAccuracy(num_classes=num_classes, average='micro', thresholds=None)
-    acc = metric(prediction, target)
+    def eval_metrics(prediction, target, num_classes, model_name='GraphNet'):
+        prediction = prediction.cpu().detach()
+        metric = MulticlassAccuracy(num_classes=num_classes, average='micro', thresholds=None)
+        acc = metric(prediction, target)
 
-    metric = MulticlassF1Score(num_classes=num_classes, average=None)
-    F1 = metric(prediction, target)
-    metric = MulticlassAUROC(num_classes=num_classes, average=None, thresholds=None)
-    AUROC = metric(prediction, target)
+        metric = MulticlassF1Score(num_classes=num_classes, average=None)
+        F1 = metric(prediction, target)
+        metric = MulticlassAUROC(num_classes=num_classes, average=None, thresholds=None)
+        AUROC = metric(prediction, target)
 
-    metric = MulticlassSpecificity(num_classes=num_classes, average=None)
-    Specificity = metric(prediction, target)
-    metric = MulticlassRecall(num_classes=num_classes, average=None)
-    recall = metric(prediction, target)
+        metric = MulticlassSpecificity(num_classes=num_classes, average=None)
+        Specificity = metric(prediction, target)
+        metric = MulticlassRecall(num_classes=num_classes, average=None)
+        recall = metric(prediction, target)
 
-    confmat = ConfusionMatrix(num_classes=num_classes)
-    CM = confmat(prediction, target)
+        confmat = ConfusionMatrix(num_classes=num_classes)
+        CM = confmat(prediction, target)
 
-    PPV, NPV = cal_metrics(CM)
-    print('[Validation] loss: ', np.sum(losses, 0) / len(losses), '\t\t Accuracy:', acc, 'AUC', AUROC, 'Mean AUC:', AUROC.mean(), 
-          'PPV:', PPV, 'Mean PPV:', PPV.mean(), 'NPV:', NPV, 'Mean NPV:', NPV.mean())
-    pred_encoder = model.get_pred_encoder()
-    pred_encoder = pred_encoder.cpu().detach()
-    metric_encoder = MulticlassAccuracy(num_classes=num_classes, average='micro', thresholds=None)
-    acc_pred = metric_encoder(pred_encoder, target)
-    metric_encoder = MulticlassF1Score(num_classes=num_classes, average=None)
-    F1 = metric_encoder(pred_encoder, target)
-    metric_encoder = MulticlassAUROC(num_classes=num_classes, average=None, thresholds=None)
-    AUROC_encoder = metric_encoder(pred_encoder, target)
-
-    metric_encoder = MulticlassSpecificity(num_classes=num_classes, average=None)
-    Specificity = metric_encoder(pred_encoder, target)
-    metric_encoder = MulticlassRecall(num_classes=num_classes, average=None)
-    recall = metric_encoder(pred_encoder, target)
-
-    confmat_encoder = ConfusionMatrix(num_classes=num_classes)
-    CM = confmat_encoder(pred_encoder, target)
-
-    PPV_encoder, NPV_encoder = cal_metrics(CM)
-    print('[Validation] for encoders: ', '\t\t Accuracy:', acc_pred, 'AUC', AUROC_encoder, 'Mean AUC:', AUROC_encoder.mean(),
-           'PPV:', PPV_encoder, 'Mean PPV:', PPV_encoder.mean(), 'NPV:', NPV_encoder, 'Mean NPV:', NPV_encoder.mean())
+        PPV, NPV = cal_metrics(CM)
+        print('[Validation] loss of {}: '.format(model_name), np.sum(losses, 0) / len(losses), '\t\t Accuracy:', acc, 'AUC', AUROC,
+            'Mean AUC:', AUROC.mean(), 'PPV:', PPV, 'Mean PPV:', PPV.mean(), 'NPV:', NPV, 'Mean NPV:', NPV.mean())
+    eval_metrics(prediction, target, num_classes, model_name='GraphNet')
+    if model.use_modal_cls:
+        pred_encoder, pred_MRI, pred_PET, pred_NonImage = model.get_pred_encoder()
+    
+        eval_metrics(pred_NonImage, target, num_classes, model_name='NonImageEncoder')
+        eval_metrics(pred_PET, target, num_classes, model_name='PETEncoder')
+        eval_metrics(pred_MRI, target, num_classes, model_name='MRIEncoder')
+        pred_Avg, pred_Sum, pred_Max = model.get_pred_reduction()
+        eval_metrics(pred_Avg, target, num_classes, model_name='AvgFeatures')
+        eval_metrics(pred_Sum, target, num_classes, model_name='SumFeatures')
+        eval_metrics(pred_Max, target, num_classes, model_name='MaxFeatures')
+    else:
+        pred_encoder = model.get_pred_encoder()
+    eval_metrics(pred_encoder, target, num_classes, model_name='ConcatEncoders')
 
 if __name__ == '__main__':
 
@@ -129,11 +123,11 @@ if __name__ == '__main__':
     num_classes = 4 if opt.label_time == 'bl' else 3
     # TODO: Add a classification head to encoders, maybe also enforce consistency between the classification head and the graph net's classification head
     # ------------ the following part should be in the 'for' loop? ----------------------
-    # # Feature extraction from existing weights, not tracking computation graph for gradient descend
-    # MRI, PET, Non_Img, Label, length = GetFeatures([train_loader, test_loader], model)
-    # # create hypergraph
-    # model.HGconstruct(MRI, PET, Non_Img)
-    # model.info(length)
+    # Feature extraction from existing weights, not tracking computation graph for gradient descend
+    MRI, PET, Non_Img, Label, length = GetFeatures([train_loader, test_loader], model)
+    # create hypergraph
+    model.HGconstruct(MRI, PET, Non_Img)
+    model.info(length)
 
     print("Training model...")
     for epoch in tqdm(range(opt.epoch_count, opt.niter + opt.niter_decay + 1), desc="Current epoch during training."):
@@ -148,6 +142,7 @@ if __name__ == '__main__':
         total_steps += opt.batch_size
         epoch_iter += opt.batch_size
         #model.optimize_parameters(data)
+        model.set_HGinput(Label)
         model.optimize_parameters(train_loader, test_loader, train_loader_u, epoch)
         loss = model.get_current_losses()
         losses.append(loss)
@@ -190,11 +185,11 @@ if __name__ == '__main__':
         model.update_learning_rate()
 
         if (epoch+1)%10 ==0:
-            # Feature extraction from existing weights, not tracking computation graph for gradient descend
-            MRI, PET, Non_Img, Label, length = GetFeatures([train_loader, test_loader], model)
-            # create hypergraph
-            model.HGconstruct(MRI, PET, Non_Img)
-            model.info(length)
-            model.set_HGinput(Label)
+            # # Feature extraction from existing weights, not tracking computation graph for gradient descend
+            # MRI, PET, Non_Img, Label, length = GetFeatures([train_loader, test_loader], model)
+            # # create hypergraph
+            # model.HGconstruct(MRI, PET, Non_Img)
+            # model.info(length)
+            # model.set_HGinput(Label)
             validation(model, epoch*len(train_loader), writer)
         writer.close()

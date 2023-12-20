@@ -203,6 +203,7 @@ if __name__ == '__main__':
         model.update_learning_rate()
 
         if (epoch+1)%10 ==0:
+            # TODO: remove the feature extraction part because extracting feature here can cause the performance drop
             MRI, PET, Non_Img, Label, length = GetFeatures([train_loader, test_loader], model)
             # create hypergraph
             model.HGconstruct(MRI, PET, Non_Img)

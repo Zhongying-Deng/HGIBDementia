@@ -160,11 +160,11 @@ class SingleTimeMultiModalityClassificationHGIBLabeledOnlyModel(BaseModel):
                     self.optimizer.step()
                     if i % 100 == 0:
                         print('Iteration {}, loss for encoders {}, loss_u {}'.format(i, self.loss.item(), loss_u.item()))
-            MRI, PET, Non_Img, Label, length = self.get_features([train_loader, test_loader])
-            # create hypergraph
-            self.HGconstruct(MRI, PET, Non_Img)
-            self.info(length)
-            self.set_HGinput(Label)
+                MRI, PET, Non_Img, Label, length = self.get_features([train_loader, test_loader])
+                # create hypergraph
+                self.HGconstruct(MRI, PET, Non_Img)
+                self.info(length)
+                self.set_HGinput(Label)
             num_graph_update = self.num_graph_update
             idx = torch.tensor(range(self.len_train)).to(self.device)
         elif phase == 'test':
@@ -203,7 +203,7 @@ class SingleTimeMultiModalityClassificationHGIBLabeledOnlyModel(BaseModel):
                     weight_u = self.weight_u * min(epoch / 80., 1.)
                 else:
                     weight_u = self.weight_u
-                self.loss = self.loss + weight_u * loss_u + self.loss_kl * self.beta
+                self.loss = self.loss_cls + weight_u * loss_u + self.loss_kl * self.beta
             else:
                 self.loss = self.loss_cls + self.loss_kl * self.beta
             if phase == 'train':
@@ -218,7 +218,7 @@ class SingleTimeMultiModalityClassificationHGIBLabeledOnlyModel(BaseModel):
             self.pred_encoder = prediction_encoder[idx]
             self.acc_encoder = (torch.softmax(self.pred_encoder, dim=1).argmax(dim=1) == self.target_cur).float().sum().float() / float(self.target.size(0))
 
-    def optimize_parameters(self, train_loader, test_loader, train_loader_u=None, epoch=None):
+    def optimize_parameters(self, train_loader=None, test_loader=None, train_loader_u=None, epoch=None):
         self.optimizer.zero_grad()
         # forward pass is here
         self.forward('train', train_loader, test_loader, train_loader_u=train_loader_u, epoch=epoch)

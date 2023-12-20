@@ -250,7 +250,7 @@ class Hypergraph(BaseHypergraph):
         assert features.ndim == 2, "The feature matrix should be 2-D."
         assert (
                 k <= features.shape[0]
-        ), "The number of nearest neighbors should be less than or equal to the number of vertices."
+        ), "The number of nearest neighbors {} should be less than or equal to the number of vertices {}.".format(k, features.shape[0])
         tree = scipy.spatial.cKDTree(features)  # construct the KD tree to find the nearest neighbors
         _, nbr_array = tree.query(features, k=k)  # query the k nearest neighbors according to features
         return nbr_array.tolist()

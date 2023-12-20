@@ -156,7 +156,6 @@ class SingleTimeMultiModalityClassificationHGIBSSModel(BaseModel):
                 prediction_u = F.softmax(prediction_u, 1)
                 loss_u = ((prediction_u_graph - prediction_u)**2).sum(1).mean()
                 
-                self.loss_cls = self.loss_cls + weight_u * loss_u
                 # TODO: move the following to Ln. 130 as the focal should not be applied to loss_u
                 if self.using_focalloss:
                     gamma = 0.5
@@ -167,6 +166,7 @@ class SingleTimeMultiModalityClassificationHGIBSSModel(BaseModel):
                 else:
                     self.loss = self.loss_cls
                 
+                self.loss = self.loss + weight_u * loss_u
                 self.optimizer.zero_grad()
                 self.loss.backward()
                 self.optimizer.step()

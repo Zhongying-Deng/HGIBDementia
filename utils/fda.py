@@ -16,14 +16,15 @@ def extract_ampl_phase(fft_im):
     return fft_amp, fft_pha
 
 def mix_freq_mutate(amp_src, amp_trg):
-    bs_src = amp_src.size(0)
-    bs_trg = amp_trg.size(0)
-    if bs_trg < bs_src:
-        times = bs_src // bs_trg
-        amp_tmp = torch.cat([amp_trg for _ in range(times + 1)], 0)
-        amp_trg = amp_tmp[:bs_src, :, :, :]
-    else:
-        amp_trg = amp_trg[:bs_src, :, :, :]
+    if len(amp_src.size()) == 4:
+        bs_src = amp_src.size(0)
+        bs_trg = amp_trg.size(0)
+        if bs_trg < bs_src:
+            times = bs_src // bs_trg
+            amp_tmp = torch.cat([amp_trg for _ in range(times + 1)], 0)
+            amp_trg = amp_tmp[:bs_src, :, :, :]
+        else:
+            amp_trg = amp_trg[:bs_src, :, :, :]
 
     lmda = uniform(0., 1.0)
     amp_src = lmda * amp_src + (1 - lmda) * amp_trg

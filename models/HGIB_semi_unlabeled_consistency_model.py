@@ -9,7 +9,7 @@ from . import networks3D
 from .densenet import *
 from .hypergraph_utils import *
 from .hypergraph import *
-from utils import center_loss
+from utils import fda, ContrastiveLoss
 
 class HGIBSemiUnlabeledConsistencyModel(BaseModel):
     def name(self):
@@ -51,7 +51,7 @@ class HGIBSemiUnlabeledConsistencyModel(BaseModel):
         self.netDecoder_HGIB = networks3D.init_net_update(HGIB_v1(1024*3, 1024, 3, use_bn=False, heads=1), self.gpu_ids)
 
         self.criterionCE = torch.nn.CrossEntropyLoss()
-
+        self.contrastive_loss = ContrastiveLoss(opt.batch_size)
         # initialize optimizers
         if self.isTrain:
             self.optimizer = torch.optim.Adam([{'params': self.netDecoder_HGIB.parameters()}, 
@@ -168,25 +168,29 @@ class HGIBSemiUnlabeledConsistencyModel(BaseModel):
                 MRI_np, PET_np, _, non_image, MRI_str_aug, PET_str_aug = data_u
                 embedding_MRI = self.netEncoder_MRI(MRI_np)
                 embedding_PET = self.netEncoder_PET(PET_np)
-                embedding_NonImage = self.netEncoder_NonImage(non_image)
-                self.HGconstruct(embedding_MRI.cpu().detach().numpy(), 
-                                embedding_PET.cpu().detach().numpy(), 
-                                embedding_NonImage.cpu().detach().numpy())
-                prediction_u_weak = self.netDecoder_HGIB(self.embedding, self.G)
+                if False:
+                    embedding_NonImage = self.netEncoder_NonImage(non_image)
+                    self.HGconstruct(embedding_MRI.cpu().detach().numpy(), 
+                                    embedding_PET.cpu().detach().numpy(), 
+                                    embedding_NonImage.cpu().detach().numpy())
+                    prediction_u_weak = self.netDecoder_HGIB(self.embedding, self.G)
                 #embedding_u = torch.cat((embedding_MRI, embedding_PET, embedding_NonImage), dim=1)
                 #prediction_u_weak = self.netClassifier(embedding_u)
+                #MRI_str_aug = fda.mix_amplitude(MRI_str_aug, PET_str_aug)
+                #PET_str_aug = fda.mix_amplitude(PET_str_aug, MRI_str_aug)
                 embedding_MRI_str_aug = self.netEncoder_MRI(MRI_str_aug)
                 embedding_PET_str_aug = self.netEncoder_PET(PET_str_aug)
-                self.HGconstruct(embedding_MRI_str_aug.cpu().detach().numpy(), 
-                                embedding_PET_str_aug.cpu().detach().numpy(), 
-                                embedding_NonImage.cpu().detach().numpy())
-                prediction_u_str_aug = self.netDecoder_HGIB(self.embedding, self.G)
-                #embedding_u_str_aug = torch.cat((embedding_MRI_str_aug, embedding_PET_str_aug, embedding_NonImage), dim=1)
-                #prediction_u_str_aug = self.netClassifier(embedding_u_str_aug)
-                prediction_u_weak = F.softmax(prediction_u_weak[0][-1], 1)
-                prediction_u_str_aug = F.softmax(prediction_u_str_aug[0][-1], 1)
-                loss_u = ((prediction_u_weak - prediction_u_str_aug)**2).sum(1).mean()
-
+                if False:
+                    self.HGconstruct(embedding_MRI_str_aug.cpu().detach().numpy(), 
+                                    embedding_PET_str_aug.cpu().detach().numpy(), 
+                                    embedding_NonImage.cpu().detach().numpy())
+                    prediction_u_str_aug = self.netDecoder_HGIB(self.embedding, self.G)
+                    #embedding_u_str_aug = torch.cat((embedding_MRI_str_aug, embedding_PET_str_aug, embedding_NonImage), dim=1)
+                    #prediction_u_str_aug = self.netClassifier(embedding_u_str_aug)
+                    prediction_u_weak = F.softmax(prediction_u_weak[0][-1], 1)
+                    prediction_u_str_aug = F.softmax(prediction_u_str_aug[0][-1], 1)
+                    loss_u = ((prediction_u_weak - prediction_u_str_aug)**2).sum(1).mean()
+                loss_u = self.contrastive_loss(embedding_MRI, embedding_MRI_str_aug) + self.contrastive_loss(embedding_PET, embedding_PET_str_aug)
                 self.loss = self.loss + weight_u * loss_x + weight_u * loss_u
                 self.optimizer.zero_grad()
                 self.loss.backward()
